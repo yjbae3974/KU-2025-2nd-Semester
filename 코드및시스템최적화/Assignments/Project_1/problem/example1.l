@@ -12,15 +12,9 @@
 "if" { printf("IF "); }
 "else" { printf("ELSE "); }
 "for" { printf("FOR "); }
-"{" { printf("{ "); }
-"}" { printf("} "); }
-"(" { printf("( "); }
-")" { printf(") "); }
-"[" { printf("[ "); }
-"]" { printf("] "); }
-"," { printf(", "); }
+"{"|"}"|"("|")"|"["|"]"|","|";" { printf("%s ", yytext); }
 "=="|"!="|"<"|">"|"<="|">=" { printf("OP_REL "); }
-"=" { printf("OP_ASSIGN "); }
+"="|"+="|"-="|"*="|"/="|"%=" { printf("OP_ASSIGN "); }
 "++" {printf("OP_INC "); }
 "--" {printf("OP_DEC "); }
 "&&" {printf("OP_LOGIC "); }
@@ -37,3 +31,12 @@
 [ \t]+ { printf(" "); }
 \n { printf("\n"); }
 %%
+
+int yywrap() {
+    return 1;
+}
+
+int main() {
+    yylex();
+    return 0;
+}
