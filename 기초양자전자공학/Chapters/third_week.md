@@ -1,3 +1,10 @@
+## State of a system
+- particles, bodies specified by certain properties/conditions
+- complete description without contradiction
+- properties/conditions could be imposed by `suitable preparation`
+- cannot be perceived directly, only be deduced from experimental observations.
+
+
 ## Mathmetical Formulation
 - In application of a theory
   - given certain physical information(특정 물리량 정보로 받음)
