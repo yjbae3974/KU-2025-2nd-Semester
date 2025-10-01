@@ -4,24 +4,20 @@
 #include <stdlib.h>
 
 
+// 1. node의 구조체 NODE를 선언(5점)
 typedef struct NODE{
-	//todo: define struct NODE
     char* name; //문자열이므로 포인터로 생성
 	struct NODE* parent; //부모 노드
 	struct NODE* child; //자식 노드
 	struct NODE* prev;
 	struct NODE* next;
-
-
-
     }NODE;
 
 
 
 
-//MakeNode: make a new node
+//2. char* name을 이름으로 하는 NODE를 생성하는 함수 MakeNode(char* name)을 작성(5점)
 NODE* MakeNode(char* name){
-	//todo	
 	NODE* new_node = (NODE*)malloc(sizeof(NODE));
 	new_node->name = (char*)malloc(strlen(name) + 1);
 	strcpy(new_node->name, name);
@@ -36,7 +32,7 @@ NODE* MakeNode(char* name){
 	}
 
 
-// Insert node (parent-child): append a child node to parent node
+// 3. Parse tree에서 parent node에 child node(this node)를 insert 하는 함수 InsertChild (NODE* parent_node, NODE* this_node)를 작성(10점)
 void InsertChild(NODE* parent_node, NODE* this_node){
 	//todo
 	this_node->parent = parent_node;
@@ -55,7 +51,7 @@ void InsertChild(NODE* parent_node, NODE* this_node){
 }
 
 
-// Insert node (prev-next): append a next node to prev node 
+// 4. Parse tree에서 같은 depth에 있는 sibling node(prev_node)에 새로운 node(this node)를 insert 하는 함수 InsertSibling(NODE* prev_node, NODE* this_node)를 작성(10점)
 void InsertSibling(NODE* prev_node, NODE* this_node){
 	//todo
 	this_node->parent = prev_node->parent;
@@ -66,7 +62,7 @@ void InsertSibling(NODE* prev_node, NODE* this_node){
 	}
 
 
-//Tree walk algorithm
+//5. Parse tree의 특정 node를 root로 하는 subtree를 DFS 순서로 char* name을 출력하는 함수 WalkTree(NODE *node)를 작성(10점)
 void WalkTree(NODE* node){
     if(node == NULL){
         return;
@@ -75,12 +71,12 @@ void WalkTree(NODE* node){
     printf("(");
     printf("%s", node->name);
     
-    if(node->child != NULL){
+    if(node->child != NULL){ //child가 없을 때까지 반복.
         printf("\n"); 
         NODE* current_child = node->child;
         
         while(current_child != NULL){
-            WalkTree(current_child);
+            WalkTree(current_child); //재귀 호출.
             
             if(current_child->next != NULL){
                 printf("\n");
@@ -92,7 +88,7 @@ void WalkTree(NODE* node){
     
     printf(")");
 }
-
+// 6. node.c의 구현 검증: 그림 3과 같은 parse tree를 생성하고 출력하기(problem2.jpg)(10점)
 	int main() {
 		NODE* A = MakeNode("A");
 		NODE* B = MakeNode("B");
@@ -113,8 +109,7 @@ void WalkTree(NODE* node){
 		InsertChild(E, F); 
 		InsertSibling(F, G);
 		InsertSibling(G, H);
-		
-		printf("Tree traversal:\n");
+
 		WalkTree(A);
 		
 		return 0;
