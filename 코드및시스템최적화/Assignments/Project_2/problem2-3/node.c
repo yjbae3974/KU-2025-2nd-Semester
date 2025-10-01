@@ -23,6 +23,7 @@ typedef struct NODE{
 NODE* MakeNode(char* name){
 	//todo	
 	NODE* new_node = (NODE*)malloc(sizeof(NODE));
+	new_node->name = (char*)malloc(strlen(name) + 1);
 	strcpy(new_node->name, name);
 
 	//처음엔 누구도 못가리키므로, 포인터 초기화
