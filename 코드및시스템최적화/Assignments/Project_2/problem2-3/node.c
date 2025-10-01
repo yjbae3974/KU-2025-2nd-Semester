@@ -67,16 +67,31 @@ void InsertSibling(NODE* prev_node, NODE* this_node){
 
 
 //Tree walk algorithm
-void WalkTree(NODE* node){ //DFS로, 재귀적으로 구현
-	//todo
-	if(node == NULL){
-		return;
-	}
-	printf("%s\n", node->name);
-	WalkTree(node->child);
-	WalkTree(node->next);
-
-	}
+void WalkTree(NODE* node){
+    if(node == NULL){
+        return;
+    }
+    
+    printf("(");
+    printf("%s", node->name);
+    
+    if(node->child != NULL){
+        printf("\n"); 
+        NODE* current_child = node->child;
+        
+        while(current_child != NULL){
+            WalkTree(current_child);
+            
+            if(current_child->next != NULL){
+                printf("\n");
+            }
+            
+            current_child = current_child->next;
+        }
+    }
+    
+    printf(")");
+}
 
 	int main() {
 		NODE* A = MakeNode("A");
