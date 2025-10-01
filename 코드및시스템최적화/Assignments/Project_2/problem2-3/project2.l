@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 typedef struct NODE NODE;   
-#include "y.tab.h"
+#include "project2.tab.h"
 %}
 
 %%

@@ -17,7 +17,7 @@ typedef struct NODE{
 
 
 //2. char* name을 이름으로 하는 NODE를 생성하는 함수 MakeNode(char* name)을 작성(5점)
-NODE* MakeNode(char* name){
+static NODE* MakeNode(char* name){
 	NODE* new_node = (NODE*)malloc(sizeof(NODE));
 	new_node->name = (char*)malloc(strlen(name) + 1);
 	strcpy(new_node->name, name);
@@ -33,7 +33,7 @@ NODE* MakeNode(char* name){
 
 
 // 3. Parse tree에서 parent node에 child node(this node)를 insert 하는 함수 InsertChild (NODE* parent_node, NODE* this_node)를 작성(10점)
-void InsertChild(NODE* parent_node, NODE* this_node){
+static void InsertChild(NODE* parent_node, NODE* this_node){
 	//todo
 	this_node->parent = parent_node;
 
@@ -52,7 +52,7 @@ void InsertChild(NODE* parent_node, NODE* this_node){
 
 
 // 4. Parse tree에서 같은 depth에 있는 sibling node(prev_node)에 새로운 node(this node)를 insert 하는 함수 InsertSibling(NODE* prev_node, NODE* this_node)를 작성(10점)
-void InsertSibling(NODE* prev_node, NODE* this_node){
+static void InsertSibling(NODE* prev_node, NODE* this_node){
 	//todo
 	this_node->parent = prev_node->parent;
 
@@ -63,7 +63,7 @@ void InsertSibling(NODE* prev_node, NODE* this_node){
 
 
 //5. Parse tree의 특정 node를 root로 하는 subtree를 DFS 순서로 char* name을 출력하는 함수 WalkTree(NODE *node)를 작성(10점)
-void WalkTree(NODE* node){
+static void WalkTree(NODE* node){
     if(node == NULL){
         return;
     }
@@ -89,28 +89,29 @@ void WalkTree(NODE* node){
     printf(")");
 }
 // 6. node.c의 구현 검증: 그림 3과 같은 parse tree를 생성하고 출력하기(problem2.jpg)(10점)
-	int main() {
-		NODE* A = MakeNode("A");
-		NODE* B = MakeNode("B");
-		NODE* C = MakeNode("C");
-		NODE* D = MakeNode("D");
-		NODE* E = MakeNode("E");
-		NODE* F = MakeNode("F");
-		NODE* G = MakeNode("G");
-		NODE* H = MakeNode("H");
-		NODE* I = MakeNode("I");
-		NODE* J = MakeNode("J");
-		
-		InsertChild(A, B);
-		InsertChild(B, C);
-		InsertSibling(B, E);
-		InsertSibling(E, I);
-		InsertSibling(C, D);
-		InsertChild(E, F); 
-		InsertSibling(F, G);
-		InsertSibling(G, H);
+#ifdef NODE_TEST
+int main(void) {
+    NODE* A = MakeNode("A");
+    NODE* B = MakeNode("B");
+    NODE* C = MakeNode("C");
+    NODE* D = MakeNode("D");
+    NODE* E = MakeNode("E");
+    NODE* F = MakeNode("F");
+    NODE* G = MakeNode("G");
+    NODE* H = MakeNode("H");
+    NODE* I = MakeNode("I");
+    NODE* J = MakeNode("J");
 
-		WalkTree(A);
-		
-		return 0;
-	}
+    InsertChild(A, B);
+    InsertChild(B, C);
+    InsertSibling(B, E);
+    InsertSibling(E, I);
+    InsertSibling(C, D);
+    InsertChild(E, F);
+    InsertSibling(F, G);
+    InsertSibling(G, H);
+
+    WalkTree(A);
+    return 0;
+}
+#endif
