@@ -291,6 +291,10 @@ static inline SYMTAB* ConstructSymTab(SYMTAB* root, NODE* head) {
         if (id_node && strncmp(id_node->name, P_ID, strlen(P_ID)) == 0) {
             char name[64];
             strcpy(name, id_node->name + strlen(P_ID));
+            /* Trim leading space */
+            if (name[0] == ' ') {
+                memmove(name, name + 1, strlen(name));
+            }
             SYMBOL* sym = NewSymbol(name, 2, 1); /* var, int */
             AddSymbol(root, sym);
         }
@@ -402,8 +406,170 @@ static inline void ProcessBody(SYMTAB* current_scope, NODE* body_node) {
 /*  Do scope-analysis for every variables in the code
     for detecting undefined variables */
 
+/* Helper: Extract variable name from variable node */
+static inline void ExtractVariableName(NODE* var_node, char* name) {
+    if (!var_node) return;
+    
+    /* If this is an ID token, extract the name */
+    if (strncmp(var_node->name, "ID:", 3) == 0) {
+        /* Skip the "ID: " part (4 characters including space) */
+        strcpy(name, var_node->name + 4);
+        return;
+    }
+    
+    /* If this is a variable node, traverse to find the ID */
+    if (strcmp(var_node->name, T_VARIABLE) == 0 && var_node->child) {
+        ExtractVariableName(var_node->child, name);
+    }
+}
+
+/* Helper: Check if a variable is defined in all scopes */
+static inline SYMBOL* FindVariableInAllScopes(SYMTAB* root_symtab, const char* var_name) {
+    if (!root_symtab || !var_name) return NULL;
+    
+    /* Search in root scope */
+    for (int i = 0; i < root_symtab->num_entry; i++) {
+        if (root_symtab->entry[i] && strcmp(root_symtab->entry[i]->name, var_name) == 0) {
+            return root_symtab->entry[i];
+        }
+    }
+    
+    /* Search in all child scopes */
+    for (int i = 0; i < root_symtab->num_child; i++) {
+        if (root_symtab->child[i]) {
+            SYMBOL* found = FindVariableInAllScopes(root_symtab->child[i], var_name);
+            if (found) return found;
+        }
+    }
+    
+    return NULL;
+}
+
+/* Helper: Find function definition in parse tree */
+static inline NODE* FindFunctionDefinition(NODE* node) {
+    if (!node) return NULL;
+    
+    if (strcmp(node->name, T_FUNC_DEF) == 0) {
+        return node;
+    }
+    
+    /* Check children */
+    if (node->child) {
+        NODE* result = FindFunctionDefinition(node->child);
+        if (result) return result;
+    }
+    
+    /* Check siblings */
+    if (node->next) {
+        NODE* result = FindFunctionDefinition(node->next);
+        if (result) return result;
+    }
+    
+    return NULL;
+}
+
+/* Helper: Analyze a single node for undefined variables */
+static inline void AnalyzeNodeForUndefinedVars(SYMTAB* symtab, NODE* node, char reported_errors[][64], int* num_reported) {
+    if (!node) return;
+    
+    /* Skip declaration nodes - we only want to check usage */
+    if (strcmp(node->name, T_DECL_INIT) == 0 || strcmp(node->name, "decl_list") == 0) {
+        return;
+    }
+    
+    /* Check if this is a variable usage */
+    if (strcmp(node->name, T_VARIABLE) == 0) {
+        char var_name[64] = "";
+        ExtractVariableName(node, var_name);
+        
+        if (strlen(var_name) > 0) {
+            SYMBOL* symbol = FindVariableInAllScopes(symtab, var_name);
+            if (!symbol) {
+                /* Check if we've already reported this error */
+                int already_reported = 0;
+                for (int i = 0; i < *num_reported; i++) {
+                    if (strcmp(reported_errors[i], var_name) == 0) {
+                        already_reported = 1;
+                        break;
+                    }
+                }
+                
+                if (!already_reported) {
+                    fprintf(stderr, "Undefined Error (%s)\n", var_name);
+                    strcpy(reported_errors[*num_reported], var_name);
+                    (*num_reported)++;
+                }
+            }
+        }
+    }
+    
+    /* Recursively analyze children */
+    if (node->child) {
+        AnalyzeNodeForUndefinedVars(symtab, node->child, reported_errors, num_reported);
+    }
+    
+    /* Recursively analyze siblings */
+    if (node->next) {
+        AnalyzeNodeForUndefinedVars(symtab, node->next, reported_errors, num_reported);
+    }
+}
+
+/* Helper: Analyze function body for undefined variables */
+static inline void AnalyzeFunctionBody(SYMTAB* symtab, NODE* body_node, char reported_errors[][64], int* num_reported) {
+    if (!body_node) return;
+    
+    NODE* curr = body_node->child;
+    
+    while (curr) {
+        /* Handle statement nodes - check for undefined variables */
+        if (strcmp(curr->name, "statement") == 0) {
+            NODE* stmt_child = curr->child;
+            if (stmt_child && strcmp(stmt_child->name, "decl_list") == 0) {
+                /* Skip variable declarations */
+            } else if (stmt_child && strcmp(stmt_child->name, T_DECL_INIT) == 0) {
+                /* Skip variable declarations */
+            } else {
+                /* Check for undefined variables in other statements */
+                AnalyzeNodeForUndefinedVars(symtab, curr, reported_errors, num_reported);
+            }
+        } else if (strcmp(curr->name, "clause") == 0) {
+            /* Handle for loops and if statements - analyze their bodies */
+            NODE* clause_child = curr->child;
+            while (clause_child) {
+                if (strcmp(clause_child->name, "body") == 0) {
+                    AnalyzeFunctionBody(symtab, clause_child, reported_errors, num_reported);
+                }
+                clause_child = clause_child->next;
+            }
+        } else {
+            /* Check for undefined variables in other nodes */
+            AnalyzeNodeForUndefinedVars(symtab, curr, reported_errors, num_reported);
+        }
+        
+        curr = curr->next;
+    }
+}
+
 static inline void ScopeAnalysis(SYMTAB* symtab, NODE* head) {
-    /* TODO */
+    if (!symtab || !head) return;
+    
+    /* Track reported errors to avoid duplicates */
+    char reported_errors[32][64];
+    int num_reported = 0;
+    
+    /* Find function definition and analyze its body */
+    NODE* func_def = FindFunctionDefinition(head);
+    if (func_def) {
+        /* Find the body node */
+        NODE* body_node = func_def->child;
+        while (body_node && strcmp(body_node->name, "body") != 0) {
+            body_node = body_node->next;
+        }
+        
+        if (body_node) {
+            AnalyzeFunctionBody(symtab, body_node, reported_errors, &num_reported);
+        }
+    }
 }
 
 /* ======PROBLEM3===== */
@@ -412,8 +578,132 @@ static inline void ScopeAnalysis(SYMTAB* symtab, NODE* head) {
      1. array index should be integer
      2. float number cannot be stored in integer variable */
      
+/* Helper: Get the type of a variable from symbol table */
+static inline int GetVariableType(SYMTAB* symtab, const char* var_name) {
+    SYMBOL* symbol = FindVariableInAllScopes(symtab, var_name);
+    if (symbol) {
+        return symbol->type[0]; /* Return the first type (for variables, there's only one type) */
+    }
+    return -1; /* Variable not found */
+}
+
+
+/* Helper: Check if a variable is used as array index by looking for LBRACKET patterns */
+static inline void CheckArrayIndexUsage(SYMTAB* symtab, NODE* node) {
+    if (!node) return;
+    
+    /* Look for LBRACKET pattern which indicates array indexing */
+    if (strncmp(node->name, P_LBRACKET, strlen(P_LBRACKET)) == 0) {
+        /* The next sibling should be the variable used as index */
+        NODE* next_node = node->next;
+        if (next_node && strcmp(next_node->name, T_VARIABLE) == 0) {
+            char var_name[64] = "";
+            ExtractVariableName(next_node, var_name);
+            
+            if (strlen(var_name) > 0) {
+                int var_type = GetVariableType(symtab, var_name);
+                if (var_type == 2) { /* float type */
+                    fprintf(stderr, "Type error: array index should be integer!\n");
+                }
+            }
+        }
+    }
+    
+    /* Recursively check children */
+    if (node->child) {
+        CheckArrayIndexUsage(symtab, node->child);
+    }
+    
+    /* Recursively check siblings */
+    if (node->next) {
+        CheckArrayIndexUsage(symtab, node->next);
+    }
+}
+
+/* Helper: Check for type mismatches in arithmetic operations */
+static inline void CheckArithmeticTypeMismatch(SYMTAB* symtab, NODE* node) {
+    if (!node) return;
+    
+    /* Check if this is an arithmetic expression */
+    if (strcmp(node->name, "al_expr") == 0) {
+        NODE* child = node->child;
+        int has_float = 0;
+        int has_int = 0;
+        
+        /* Check all variables in the expression */
+        while (child) {
+            if (strcmp(child->name, T_VARIABLE) == 0) {
+                char var_name[64] = "";
+                ExtractVariableName(child, var_name);
+                
+                if (strlen(var_name) > 0) {
+                    int var_type = GetVariableType(symtab, var_name);
+                    if (var_type == 1) { /* int type */
+                        has_int = 1;
+                    } else if (var_type == 2) { /* float type */
+                        has_float = 1;
+                    }
+                }
+            }
+            child = child->next;
+        }
+        
+        /* If both int and float are present, report error */
+        if (has_int && has_float) {
+            fprintf(stderr, "Type error: float number cannot be stored in integer variable!\n");
+        }
+    }
+    
+    /* Recursively check children */
+    if (node->child) {
+        CheckArithmeticTypeMismatch(symtab, node->child);
+    }
+    
+    /* Recursively check siblings */
+    if (node->next) {
+        CheckArithmeticTypeMismatch(symtab, node->next);
+    }
+}
+
+/* Helper: Analyze function body for type errors */
+static inline void AnalyzeFunctionBodyForTypes(SYMTAB* symtab, NODE* body_node) {
+    if (!body_node) return;
+    
+    NODE* curr = body_node->child;
+    
+    while (curr) {
+        /* Check for array index usage */
+        if (strcmp(curr->name, "statement") == 0) {
+            NODE* stmt_child = curr->child;
+            if (stmt_child && strcmp(stmt_child->name, "assign_stmt") == 0) {
+                /* Check for array indexing in assignment statements */
+                CheckArrayIndexUsage(symtab, curr);
+            }
+        }
+        
+        /* Check for arithmetic type mismatches */
+        CheckArithmeticTypeMismatch(symtab, curr);
+        
+        curr = curr->next;
+    }
+}
+
 static inline void TypeAnalysis(SYMTAB* symtab, NODE* head) {
-    /* TODO */
+    if (!symtab || !head) return;
+    
+    /* Find function definition and analyze its body */
+    NODE* func_def = FindFunctionDefinition(head);
+    if (func_def) {
+        /* Find the body node */
+        NODE* body_node = func_def->child;
+        while (body_node && strcmp(body_node->name, "body") != 0) {
+            body_node = body_node->next;
+        }
+        
+        if (body_node) {
+            AnalyzeFunctionBodyForTypes(symtab, body_node);
+        }
+    }
 }
 
 #endif 
