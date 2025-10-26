@@ -145,6 +145,36 @@ static inline SYMBOL* FindSymbol(SYMTAB* symtab, const char* name) {
     return NULL;
 }
 
+static inline void ProcessBody(SYMTAB* current_scope, NODE* body_node);
+
+/* Helper: Process declaration list recursively */
+static inline void ProcessDeclList(NODE* decl_list, int* param_count, SYMBOL* func_sym) {
+    if (!decl_list) return;
+    
+    if (strcmp(decl_list->name, T_DECL_INIT) == 0) {
+        (*param_count)++;
+        if (*param_count < 7) {
+            func_sym->type[func_sym->num_type] = 1; /* int */
+            func_sym->num_type++;
+        }
+    } else if (strcmp(decl_list->name, "decl_list") == 0) {
+        /* Process children recursively */
+        if (decl_list->child) {
+            ProcessDeclList(decl_list->child, param_count, func_sym);
+        }
+        /* Process siblings recursively */
+        if (decl_list->next) {
+            ProcessDeclList(decl_list->next, param_count, func_sym);
+        }
+    } else {
+        /* Skip other tokens like COMMA, LPAREN, RPAREN, etc. */
+        /* But still process siblings */
+        if (decl_list->next) {
+            ProcessDeclList(decl_list->next, param_count, func_sym);
+        }
+    }
+}
+
 /* Helper: get type from type node */
 static inline int GetType(NODE* type_node) {
     if (!type_node || !type_node->child) return 1; /* default: int */
@@ -160,19 +190,100 @@ static inline int GetType(NODE* type_node) {
 static inline void GetVarName(NODE* var_node, char* name) {
     if (!var_node) return;
     
+    /* If this is an ID token, extract the name */
     if (strncmp(var_node->name, "ID:", 3) == 0) {
-        strcpy(name, var_node->name + 3);
+        /* Skip the "ID: " part (4 characters including space) */
+        strcpy(name, var_node->name + 4);
         return;
     }
     
+    /* If this is a variable node, traverse to find the ID */
     if (strcmp(var_node->name, T_VARIABLE) == 0 && var_node->child) {
         GetVarName(var_node->child, name);
+    }
+}
+
+/* Helper: Process declaration list for local variables */
+static inline void ProcessDeclListForVariables(SYMTAB* current_scope, NODE* decl_list) {
+    if (!decl_list) return;
+    
+    if (strcmp(decl_list->name, T_DECL_INIT) == 0) {
+        NODE* type_n = decl_list->child;
+        NODE* var_n = type_n ? type_n->next : NULL;
+        
+        if (var_n) {
+            char var_name[64] = "";
+            GetVarName(var_n, var_name);
+            if (strlen(var_name) > 0) {
+                SYMBOL* var_sym = NewSymbol(var_name, 2, GetType(type_n));
+                AddSymbol(current_scope, var_sym);
+            }
+        }
+    } else if (strcmp(decl_list->name, "decl_list") == 0) {
+        /* Process children recursively */
+        if (decl_list->child) {
+            ProcessDeclListForVariables(current_scope, decl_list->child);
+        }
+        /* Process siblings recursively */
+        if (decl_list->next) {
+            ProcessDeclListForVariables(current_scope, decl_list->next);
+        }
+    } else {
+        /* Skip other tokens like COMMA, LPAREN, RPAREN, etc. */
+        /* But still process siblings */
+        if (decl_list->next) {
+            ProcessDeclListForVariables(current_scope, decl_list->next);
+        }
+    }
+}
+
+/* Helper: Add parameters to function scope */
+static inline void AddParamsToScope(SYMTAB* func_scope, NODE* decl_list) {
+    if (!decl_list) return;
+    
+    if (strcmp(decl_list->name, T_DECL_INIT) == 0) {
+        NODE* type_n = decl_list->child;
+        NODE* var_n = type_n ? type_n->next : NULL;
+        
+        if (var_n) {
+            char param_name[64] = "";
+            GetVarName(var_n, param_name);
+            if (strlen(param_name) > 0) {
+                SYMBOL* param_sym = NewSymbol(param_name, 1, GetType(type_n));
+                AddSymbol(func_scope, param_sym);
+            }
+        }
+    } else if (strcmp(decl_list->name, "decl_list") == 0) {
+        /* Process children recursively */
+        if (decl_list->child) {
+            AddParamsToScope(func_scope, decl_list->child);
+        }
+        /* Process siblings recursively */
+        if (decl_list->next) {
+            AddParamsToScope(func_scope, decl_list->next);
+        }
+    } else {
+        /* Skip other tokens like COMMA, LPAREN, RPAREN, etc. */
+        /* But still process siblings */
+        if (decl_list->next) {
+            AddParamsToScope(func_scope, decl_list->next);
+        }
     }
 }
 
 /* Construct a symbol table tree using parse tree */
 static inline SYMTAB* ConstructSymTab(SYMTAB* root, NODE* head) {
     if (!head) return root;
+    
+    /* Process children first */
+    if (head->child) {
+        ConstructSymTab(root, head->child);
+    }
+    
+    /* Process siblings */
+    if (head->next) {
+        ConstructSymTab(root, head->next);
+    }
     
     /* Process define_header */
     if (strcmp(head->name, T_DEFINE_HEADER) == 0) {
@@ -196,7 +307,7 @@ static inline SYMTAB* ConstructSymTab(SYMTAB* root, NODE* head) {
             
             SYMBOL* func_sym = NewSymbol(func_name, 0, GetType(type_node));
             
-            /* Parse function arguments */
+            /* Parse function arguments - find func_arg_dec node */
             NODE* func_arg = id_node->next;
             while (func_arg && strcmp(func_arg->name, "func_arg_dec") != 0) {
                 func_arg = func_arg->next;
@@ -204,57 +315,22 @@ static inline SYMTAB* ConstructSymTab(SYMTAB* root, NODE* head) {
             
             if (func_arg && func_arg->child) {
                 NODE* decl_list = func_arg->child;
-                NODE* curr = decl_list;
                 
-                /* Count parameters */
+                /* Count parameters by traversing the decl_list structure */
                 int param_count = 0;
-                while (curr) {
-                    if (strcmp(curr->name, T_DECL_INIT) == 0) {
-                        param_count++;
-                        if (param_count < 7) {
-                            func_sym->type[func_sym->num_type++] = 1; /* int */
-                        }
-                    }
-                    if (strcmp(curr->name, "decl_list") == 0 && curr->child) {
-                        curr = curr->child;
-                    } else {
-                        curr = curr->next;
-                    }
-                }
+                ProcessDeclList(decl_list, &param_count, func_sym);
             }
             
             AddSymbol(root, func_sym);
             
+            /* Add parameters to the same scope as the function */
+            if (func_arg && func_arg->child) {
+                AddParamsToScope(root, func_arg->child);
+            }
+            
             /* Create child scope for function body */
             SYMTAB* func_scope = NewSymTab();
             AddSymTab(root, func_scope);
-            
-            /* Add parameters to function scope */
-            if (func_arg && func_arg->child) {
-                NODE* curr = func_arg->child;
-                
-                while (curr) {
-                    if (strcmp(curr->name, T_DECL_INIT) == 0) {
-                        NODE* type_n = curr->child;
-                        NODE* var_n = type_n ? type_n->next : NULL;
-                        
-                        if (var_n) {
-                            char param_name[64] = "";
-                            GetVarName(var_n, param_name);
-                            if (strlen(param_name) > 0) {
-                                SYMBOL* param_sym = NewSymbol(param_name, 1, GetType(type_n));
-                                AddSymbol(func_scope, param_sym);
-                            }
-                        }
-                    }
-                    
-                    if (strcmp(curr->name, "decl_list") == 0 && curr->child) {
-                        curr = curr->child;
-                    } else {
-                        curr = curr->next;
-                    }
-                }
-            }
             
             /* Process function body */
             NODE* body_node = func_arg;
@@ -268,11 +344,6 @@ static inline SYMTAB* ConstructSymTab(SYMTAB* root, NODE* head) {
         }
     }
     
-    /* Process siblings */
-    if (head->next) {
-        ConstructSymTab(root, head->next);
-    }
-    
     return root;
 }
 
@@ -283,17 +354,22 @@ static inline void ProcessBody(SYMTAB* current_scope, NODE* body_node) {
     NODE* curr = body_node->child;
     
     while (curr) {
-        /* Handle variable declaration */
-        if (strcmp(curr->name, T_DECL_INIT) == 0) {
-            NODE* type_n = curr->child;
-            NODE* var_n = type_n ? type_n->next : NULL;
-            
-            if (var_n) {
-                char var_name[64] = "";
-                GetVarName(var_n, var_name);
-                if (strlen(var_name) > 0) {
-                    SYMBOL* var_sym = NewSymbol(var_name, 2, GetType(type_n));
-                    AddSymbol(current_scope, var_sym);
+        /* Handle statement nodes - they may contain variable declarations */
+        if (strcmp(curr->name, "statement") == 0) {
+            NODE* stmt_child = curr->child;
+            if (stmt_child && strcmp(stmt_child->name, "decl_list") == 0) {
+                ProcessDeclListForVariables(current_scope, stmt_child);
+            } else if (stmt_child && strcmp(stmt_child->name, T_DECL_INIT) == 0) {
+                NODE* type_n = stmt_child->child;
+                NODE* var_n = type_n ? type_n->next : NULL;
+                
+                if (var_n) {
+                    char var_name[64] = "";
+                    GetVarName(var_n, var_name);
+                    if (strlen(var_name) > 0) {
+                        SYMBOL* var_sym = NewSymbol(var_name, 2, GetType(type_n));
+                        AddSymbol(current_scope, var_sym);
+                    }
                 }
             }
         }
