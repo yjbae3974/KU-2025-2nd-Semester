@@ -71,29 +71,255 @@ static inline void AddSymTab(SYMTAB* parent_symtab, SYMTAB* child_symtab) {
 
 /* Print a symbol table tree */
 static inline void PrintSymTab(SYMTAB* symtab) {
-    /* TODO */
+    if (!symtab) return;
+    
+    printf("--------------------------------------------------------------\n");
+    printf("%-15s|%-14s|%-25s\n", "name", "kind", "type");
+    printf("--------------------------------------------------------------\n");
+    
+    for (int i = 0; i < symtab->num_entry; i++) {
+        SYMBOL* sym = symtab->entry[i];
+        if (!sym) continue;
+        
+        char kind_str[16];
+        if (sym->kind == 0) strcpy(kind_str, "func");
+        else if (sym->kind == 1) strcpy(kind_str, "param");
+        else strcpy(kind_str, "var");
+        
+        char type_str[64] = "";
+        for (int j = 0; j < sym->num_type; j++) {
+            if (j > 0) strcat(type_str, " ");
+            if (sym->type[j] == 0) strcat(type_str, "void");
+            else if (sym->type[j] == 1) strcat(type_str, "int");
+            else if (sym->type[j] == 2) strcat(type_str, "float");
+            
+            if (j == 0 && sym->kind == 0 && sym->num_type > 1) {
+                strcat(type_str, " /");
+            }
+        }
+        
+        printf("%-15s|%-14s|%-25s\n", sym->name, kind_str, type_str);
+    }
+    
+    /* Recursively print child symbol tables */
+    for (int i = 0; i < symtab->num_child; i++) {
+        if (symtab->child[i]) {
+            PrintSymTab(symtab->child[i]);
+        }
+    }
 }
 
 /* Generate a new element for symbol table */
 static inline SYMBOL* NewSymbol(const char* name, int kind, int type) {
-    /* TODO */
-
+    SYMBOL* s = (SYMBOL*)malloc(sizeof(SYMBOL));
+    strcpy(s->name, name);
+    s->kind = kind;
+    s->type[0] = type;
+    s->num_type = 1;
+    return s;
 }
 
 /* Insert an element to symbol table entry */
 static inline void AddSymbol(SYMTAB* symtab, SYMBOL* symbol) {
-    /* TODO */
+    if (!symtab || !symbol) return;
+    symtab->entry[symtab->num_entry] = symbol;
+    symtab->num_entry++;
 }
 
 /* Find an element with corresponding name from symbol table, considering scope */
 static inline SYMBOL* FindSymbol(SYMTAB* symtab, const char* name) {
-    /* TODO */
+    if (!symtab || !name) return NULL;
+    
+    /* Search in current scope */
+    for (int i = 0; i < symtab->num_entry; i++) {
+        if (symtab->entry[i] && strcmp(symtab->entry[i]->name, name) == 0) {
+            return symtab->entry[i];
+        }
+    }
+    
+    /* Search in parent scope */
+    if (symtab->parent) {
+        return FindSymbol(symtab->parent, name);
+    }
+    
     return NULL;
+}
+
+/* Helper: get type from type node */
+static inline int GetType(NODE* type_node) {
+    if (!type_node || !type_node->child) return 1; /* default: int */
+    
+    NODE* child = type_node->child;
+    if (strncmp(child->name, P_VOID, strlen(P_VOID)) == 0) return 0;
+    if (strncmp(child->name, P_INT, strlen(P_INT)) == 0) return 1;
+    if (strncmp(child->name, P_FLOAT, strlen(P_FLOAT)) == 0) return 2;
+    return 1;
+}
+
+/* Helper: get variable name from variable node */
+static inline void GetVarName(NODE* var_node, char* name) {
+    if (!var_node) return;
+    
+    if (strncmp(var_node->name, "ID:", 3) == 0) {
+        strcpy(name, var_node->name + 3);
+        return;
+    }
+    
+    if (strcmp(var_node->name, T_VARIABLE) == 0 && var_node->child) {
+        GetVarName(var_node->child, name);
+    }
 }
 
 /* Construct a symbol table tree using parse tree */
 static inline SYMTAB* ConstructSymTab(SYMTAB* root, NODE* head) {
-    /* TODO */
+    if (!head) return root;
+    
+    /* Process define_header */
+    if (strcmp(head->name, T_DEFINE_HEADER) == 0) {
+        NODE* id_node = head->child->next;
+        if (id_node && strncmp(id_node->name, P_ID, strlen(P_ID)) == 0) {
+            char name[64];
+            strcpy(name, id_node->name + strlen(P_ID));
+            SYMBOL* sym = NewSymbol(name, 2, 1); /* var, int */
+            AddSymbol(root, sym);
+        }
+    }
+    
+    /* Process func_def */
+    if (strcmp(head->name, T_FUNC_DEF) == 0) {
+        NODE* type_node = head->child;
+        NODE* id_node = type_node ? type_node->next : NULL;
+        
+        if (id_node && strncmp(id_node->name, P_ID, strlen(P_ID)) == 0) {
+            char func_name[64];
+            strcpy(func_name, id_node->name + strlen(P_ID));
+            
+            SYMBOL* func_sym = NewSymbol(func_name, 0, GetType(type_node));
+            
+            /* Parse function arguments */
+            NODE* func_arg = id_node->next;
+            while (func_arg && strcmp(func_arg->name, "func_arg_dec") != 0) {
+                func_arg = func_arg->next;
+            }
+            
+            if (func_arg && func_arg->child) {
+                NODE* decl_list = func_arg->child;
+                NODE* curr = decl_list;
+                
+                /* Count parameters */
+                int param_count = 0;
+                while (curr) {
+                    if (strcmp(curr->name, T_DECL_INIT) == 0) {
+                        param_count++;
+                        if (param_count < 7) {
+                            func_sym->type[func_sym->num_type++] = 1; /* int */
+                        }
+                    }
+                    if (strcmp(curr->name, "decl_list") == 0 && curr->child) {
+                        curr = curr->child;
+                    } else {
+                        curr = curr->next;
+                    }
+                }
+            }
+            
+            AddSymbol(root, func_sym);
+            
+            /* Create child scope for function body */
+            SYMTAB* func_scope = NewSymTab();
+            AddSymTab(root, func_scope);
+            
+            /* Add parameters to function scope */
+            if (func_arg && func_arg->child) {
+                NODE* curr = func_arg->child;
+                
+                while (curr) {
+                    if (strcmp(curr->name, T_DECL_INIT) == 0) {
+                        NODE* type_n = curr->child;
+                        NODE* var_n = type_n ? type_n->next : NULL;
+                        
+                        if (var_n) {
+                            char param_name[64] = "";
+                            GetVarName(var_n, param_name);
+                            if (strlen(param_name) > 0) {
+                                SYMBOL* param_sym = NewSymbol(param_name, 1, GetType(type_n));
+                                AddSymbol(func_scope, param_sym);
+                            }
+                        }
+                    }
+                    
+                    if (strcmp(curr->name, "decl_list") == 0 && curr->child) {
+                        curr = curr->child;
+                    } else {
+                        curr = curr->next;
+                    }
+                }
+            }
+            
+            /* Process function body */
+            NODE* body_node = func_arg;
+            while (body_node && strcmp(body_node->name, "body") != 0) {
+                body_node = body_node->next;
+            }
+            
+            if (body_node) {
+                ProcessBody(func_scope, body_node);
+            }
+        }
+    }
+    
+    /* Process siblings */
+    if (head->next) {
+        ConstructSymTab(root, head->next);
+    }
+    
+    return root;
+}
+
+/* Helper: Process function body for variable declarations and nested scopes */
+static inline void ProcessBody(SYMTAB* current_scope, NODE* body_node) {
+    if (!body_node) return;
+    
+    NODE* curr = body_node->child;
+    
+    while (curr) {
+        /* Handle variable declaration */
+        if (strcmp(curr->name, T_DECL_INIT) == 0) {
+            NODE* type_n = curr->child;
+            NODE* var_n = type_n ? type_n->next : NULL;
+            
+            if (var_n) {
+                char var_name[64] = "";
+                GetVarName(var_n, var_name);
+                if (strlen(var_name) > 0) {
+                    SYMBOL* var_sym = NewSymbol(var_name, 2, GetType(type_n));
+                    AddSymbol(current_scope, var_sym);
+                }
+            }
+        }
+        
+        /* Handle for loops - create new scope */
+        if (strcmp(curr->name, "for") == 0 || strcmp(curr->name, "clause") == 0) {
+            /* Check if this clause contains a body that creates a new scope */
+            NODE* clause_body = curr->child;
+            while (clause_body) {
+                if (strcmp(clause_body->name, "body") == 0) {
+                    SYMTAB* nested_scope = NewSymTab();
+                    AddSymTab(current_scope, nested_scope);
+                    ProcessBody(nested_scope, clause_body);
+                    break;
+                }
+                clause_body = clause_body->next;
+            }
+        }
+        
+        /* Handle nested body */
+        if (strcmp(curr->name, "body") == 0) {
+            ProcessBody(current_scope, curr);
+        }
+        
+        curr = curr->next;
+    }
 }
 
 /* =====PROBLEM2===== */
