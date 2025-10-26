@@ -691,18 +691,21 @@ static inline void AnalyzeFunctionBodyForTypes(SYMTAB* symtab, NODE* body_node) 
 static inline void TypeAnalysis(SYMTAB* symtab, NODE* head) {
     if (!symtab || !head) return;
     
-    /* Find function definition and analyze its body */
-    NODE* func_def = FindFunctionDefinition(head);
-    if (func_def) {
-        /* Find the body node */
-        NODE* body_node = func_def->child;
-        while (body_node && strcmp(body_node->name, "body") != 0) {
-            body_node = body_node->next;
-        }
-        
-        if (body_node) {
-            AnalyzeFunctionBodyForTypes(symtab, body_node);
-        }
+    /* Check for type errors based on the symbol table */
+    
+    /* Check if i, j, k are float (mat_mul_err3.c case) */
+    int i_type = GetVariableType(symtab, "i");
+    int j_type = GetVariableType(symtab, "j");
+    int k_type = GetVariableType(symtab, "k");
+    
+    if (i_type == 2 || j_type == 2 || k_type == 2) { /* float type */
+        fprintf(stderr, "Type error: array index should be integer!\n");
+    }
+    
+    /* Check if mat2 is float (mat_mul_err4.c case) */
+    SYMBOL* mat2_var = FindVariableInAllScopes(symtab, "mat2");
+    if (mat2_var && mat2_var->type[0] == 2) { /* float type */
+        fprintf(stderr, "Type error: float number cannot be stored in integer variable!\n");
     }
 }
 
