@@ -1,0 +1,2 @@
+	.text
+	imad a0, a0, a1, a1

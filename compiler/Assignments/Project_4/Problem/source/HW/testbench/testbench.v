@@ -39,7 +39,7 @@ endtask
 //------------------------------------------------
 //  Test Input Trace
 //------------------------------------------------
-parameter TRACE_SIZE = 437;
+parameter TRACE_SIZE = 1024; // Increased size just in case
 
 integer               file_decsriptor; // file handler
 integer               file_io; // file handler
@@ -54,8 +54,12 @@ initial begin
     $display("file_decsriptor was NULL");
     $finish;
   end
+  // Initialize with 0
+  for( i =0; i< TRACE_SIZE; i=i+1) in_inst[i] = 0;
+  
   for( i =0; i< TRACE_SIZE; i=i+1) begin
     file_io = $fscanf(file_decsriptor,"%x\n", in_inst[i]); 
+    if ($feof(file_decsriptor)) i = TRACE_SIZE; // Break loop
   end
    $display ("File Read Done!");
 end
@@ -97,9 +101,11 @@ UUT_RISCV_SOC
 integer     j, cycle_tick;
 reg[31:0]   debug_req_retired_temp;
 integer     retired_inst_cnt;
+integer     conv_active;
 
 wire        debug_branch_taken_w;
 wire [31:0] debug_PC_w;
+wire [31:0] debug_req_retired;
 
 
 assign debug_PC_w                    = UUT_RISCV_SOC.u_core.u_issue.u_pipe_ctrl.u_HPC.req_pc;
@@ -129,12 +135,17 @@ endtask
 
 initial begin
   start   = 0;
+  retired_inst_cnt = 0;
+  debug_req_retired_temp = 0;
+  conv_active = 0;
+
   $display ("Request enqueue start!");
   start   = 1;
   wait_clocks(1);
 
   for( j =0; j< TRACE_SIZE; j=j+1) begin 
-  INIT_MEM_WRITE(j * 4, in_inst[j]);
+    if (in_inst[j] != 0) // Only write valid instructions
+        INIT_MEM_WRITE(j * 4, in_inst[j]);
   end
   wait_clocks(1);
 
@@ -156,36 +167,42 @@ initial begin
   //====================
 
   wait_clocks(1);
-  for(cycle_tick = 0; cycle_tick<40000; cycle_tick=cycle_tick+1)begin
+  for(cycle_tick = 0; cycle_tick<2000000; cycle_tick=cycle_tick+1)begin // Enough cycles
      wait_clocks(1);
 
     if (cycle_tick == 0) begin
         debug_req_retired_temp[31:0] = debug_req_retired[31:0];
     end
     if (debug_req_retired_temp != debug_req_retired) begin
-      retired_inst_cnt = retired_inst_cnt + 1;
+      if (conv_active) begin
+          retired_inst_cnt = retired_inst_cnt + 1;
+      end
       debug_req_retired_temp[31:0] = debug_req_retired[31:0];
     end
 
-    if (debug_PC_w == 32'h0000_0000) begin  // TODO: start PC of conv
-        $display("CONV start!");
+    // PARAMETERS TO BE REPLACED BY SED
+    if (debug_PC_w == 32'h00000170 && conv_active == 0) begin  // Start PC
+        $display("CONV start! Cycle: %d", cycle_tick);
+        conv_active = 1;
         retired_inst_cnt = 0;
     end
-    if (debug_PC_w == 32'h0000_0000) begin  // TODO: end PC of conv
-        $display("CONV end!");
+    if (debug_PC_w == 32'h00000264 && conv_active == 1) begin  // End PC
+        $display("CONV end! Cycle: %d", cycle_tick);
         $display("Retired instruction count: %d", retired_inst_cnt);
-    end
-
-    if (debug_PC_w == 32'h0000_0000) begin  // TODO: end PC of program
-        wait_clocks(50);
+        conv_active = 0;
+        wait_clocks(100);
         $finish();
+    end
+    
+    if (cycle_tick % 10000 == 0 && cycle_tick > 0) begin
+        $display("Simulation running... Cycle: %d PC: %x", cycle_tick, debug_PC_w);
     end
   end
     
+  $display("Simulation timeout");
+  $display("Final Retired instruction count: %d", retired_inst_cnt);
+  $finish();
 
 end  
-
-
-
 
 endmodule

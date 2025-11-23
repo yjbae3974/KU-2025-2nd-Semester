@@ -1,0 +1,10 @@
+
+imad_without.o:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+00000000 <mul>:
+   0:	02b50533          	mul	a0,a0,a1
+   4:	00b50533          	add	a0,a0,a1
+   8:	00008067          	ret

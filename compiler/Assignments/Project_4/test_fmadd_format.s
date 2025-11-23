@@ -1,0 +1,3 @@
+	.text
+	fmadd.s f0, f1, f2, f3
+	ret
