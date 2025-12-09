@@ -1,0 +1,77 @@
+=== gem5 Test Summary ===
+
+Program: test.cpp (sum of 0-9)
+Expected Output: sum=45
+Actual Output: sum=45 ✓
+
+=== Simulation Configuration ===
+CPU Type: DerivO3CPU (Out-of-Order)
+CPU Clock: 3GHz
+System Clock: 3GHz
+Memory: DDR3_1600_8x8, 1GB
+L1 I-Cache: 32kB, 8-way associativity
+L1 D-Cache: 32kB, 8-way associativity  
+L2 Cache: 256kB, 8-way associativity
+Cache Line Size: 64 bytes
+
+=== Performance Metrics ===
+Total Instructions: 89,827
+Total Cycles: 66,661,938 ticks
+CPI (Cycles Per Instruction): 2.23
+Simulation Time: 0.000067 seconds (simulated)
+Host Time: 0.60 seconds
+
+=== Cache Performance ===
+L1 Instruction Cache:
+  - Accesses: 21,264
+  - Hits: 20,548 (96.6%)
+  - Misses: 716 (3.4%)
+  - Miss Rate: 3.37%
+
+L1 Data Cache:
+  - Accesses: 13,476
+  - Hits: 9,912 (73.5%)
+  - Misses: 3,564 (26.5%)
+  - Miss Rate: 26.4%
+  - Avg Miss Latency: 56,034 cycles
+
+=== Branch Prediction ===
+Branch Predictor Lookups: 34,170
+Conditional Branches Predicted: 25,935
+Conditional Branches Incorrect: 704
+BTB Hit Rate: 94.3%
+
+=== Status ===
+✓ Simulation completed successfully
+✓ Program output correct
+✓ All statistics generated
+✓ Configuration matches specifications
+
+=== L2 Cache Performance ===
+L2 Cache:
+  - Total Accesses: 1,505 (545 inst + 960 data)
+  - Demand Hits: 48 (3.2% hit rate)
+  - Demand Misses: 1,457 (96.8% miss rate - goes to main memory)
+  - Serves as shared cache for both instruction and data
+
+=== Key Achievements ===
+1. ✓ Successfully built gem5 for ARM/AArch64 architecture
+2. ✓ Fixed all Python 3.12 compatibility issues
+3. ✓ Fixed unsupported syscall handling (rseq syscall 293)
+4. ✓ Compiled test.cpp for AArch64
+5. ✓ Successfully ran simulation with DerivO3CPU
+6. ✓ Generated complete performance statistics
+7. ✓ Program executed correctly (sum=45)
+
+=== Files Generated ===
+- test_arm: AArch64 binary (625KB)
+- test_output/stats.txt: Detailed simulation statistics (149KB)
+- test_output/config.ini: System configuration (26KB)
+- test_output/config.json: JSON configuration (74KB)
+
+=== Next Steps ===
+You can now:
+1. Run more complex programs by compiling them for AArch64
+2. Experiment with different CPU types (AtomicSimpleCPU, TimingSimpleCPU, etc.)
+3. Modify cache configurations and analyze performance
+4. Use the stats.txt file for detailed performance analysis
