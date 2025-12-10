@@ -1,0 +1,98 @@
+=== matmul_base Profiling Data ===
+
+Matrix Size: (16, 512, 512)
+----------------------------------------
+Execution time (sim_seconds): 0.209242
+# cycles (system.cpu.numCycles): 628354783
+# instructions (system.cpu.committedInsts): 179556295
+CPI (system.cpu.cpi): 3.500 (calculated: cycles/instructions)
+# Dcache hits: 95818899
+# Dcache misses: 2568203
+# Icache hits: 179555189
+# Icache misses: 1718
+# L2 cache hits: 2505373
+# L2 cache misses: 64425
+# DRAM read requests: 62751
+# DRAM write requests: 37126
+DRAM read row hits: 53060
+DRAM write row hits: 32568
+
+Matrix Size: (16, 1024, 1024)
+----------------------------------------
+Execution time (sim_seconds): 0.891629
+# cycles (system.cpu.numCycles): 2677564843
+# instructions (system.cpu.committedInsts): 711551529
+CPI (system.cpu.cpi): 3.764 (calculated: cycles/instructions)
+# Dcache hits: 372729033
+# Dcache misses: 18009576
+# Icache hits: 711551210
+# Icache misses: 1715
+# L2 cache hits: 17795592
+# L2 cache misses: 215576
+# DRAM read requests: 213903
+# DRAM write requests: 138105
+DRAM read row hits: 183845
+DRAM write row hits: 122236
+
+Matrix Size: (16, 2048, 2048)
+----------------------------------------
+Execution time (sim_seconds): 3.554132
+# cycles (system.cpu.numCycles): 10673069850
+# instructions (system.cpu.committedInsts): 2837225102
+CPI (system.cpu.cpi): 3.762 (calculated: cycles/instructions)
+# Dcache hits: 1487057082
+# Dcache misses: 71917042
+# Icache hits: 2837227917
+# Icache misses: 1690
+# L2 cache hits: 71105973
+# L2 cache misses: 812636
+# DRAM read requests: 810984
+# DRAM write requests: 536522
+DRAM read row hits: 703285
+DRAM write row hits: 476039
+
+=== Derived Metrics ===
+
+Matrix Size: (16, 512, 512)
+- Dcache hit ratio: 97.39% (95818899 / (95818899 + 2568203))
+- Dcache miss ratio: 2.61%
+- Icache hit ratio: 99.99% (179555189 / (179555189 + 1718))
+- Icache miss ratio: 0.01%
+- L2 hit ratio: 97.49% (2505373 / (2505373 + 64425))
+- L2 miss ratio: 2.51%
+- DRAM read row hit ratio: 84.55% (53060 / 62751)
+- DRAM write row hit ratio: 87.73% (32568 / 37126)
+
+Matrix Size: (16, 1024, 1024)
+- Dcache hit ratio: 95.39% (372729033 / (372729033 + 18009576))
+- Dcache miss ratio: 4.61%
+- Icache hit ratio: 99.99% (711551210 / (711551210 + 1715))
+- Icache miss ratio: 0.01%
+- L2 hit ratio: 98.80% (17795592 / (17795592 + 215576))
+- L2 miss ratio: 1.20%
+- DRAM read row hit ratio: 85.95% (183845 / 213903)
+- DRAM write row hit ratio: 88.50% (122236 / 138105)
+
+Matrix Size: (16, 2048, 2048)
+- Dcache hit ratio: 95.38% (1487057082 / (1487057082 + 71917042))
+- Dcache miss ratio: 4.62%
+- Icache hit ratio: 99.99% (2837227917 / (2837227917 + 1690))
+- Icache miss ratio: 0.01%
+- L2 hit ratio: 98.87% (71105973 / (71105973 + 812636))
+- L2 miss ratio: 1.13%
+- DRAM read row hit ratio: 86.72% (703285 / 810984)
+- DRAM write row hit ratio: 88.72% (476039 / 536522)
+
+=== Branch Statistics ===
+
+Matrix Size: (16, 512, 512)
+- Branches (system.cpu.Branches): 14057243
+
+Matrix Size: (16, 1024, 1024)
+- Branches (system.cpu.Branches): 55067951
+
+Matrix Size: (16, 2048, 2048)
+- Branches (system.cpu.Branches): 218878281
+
+Note: Branch mispredicts are not available for TimingSimpleCPU model.
+For detailed branch prediction analysis, use DerivO3CPU model.

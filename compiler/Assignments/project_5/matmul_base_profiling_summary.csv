@@ -1,0 +1,20 @@
+Metric,16x512x512,16x1024x1024,16x2048x2048
+Execution time (sim_seconds),0.209242,0.891629,3.554132
+Cycles (system.cpu.numCycles),628354783,2677564843,10673069850
+Instructions (system.cpu.committedInsts),179556295,711551529,2837225102
+CPI (calculated),3.500,3.764,3.762
+Dcache hits,95818899,372729033,1487057082
+Dcache misses,2568203,18009576,71917042
+Dcache hit ratio (%),97.39,95.39,95.38
+Icache hits,179555189,711551210,2837227917
+Icache misses,1718,1715,1690
+Icache hit ratio (%),99.99,99.99,99.99
+L2 hits,2505373,17795592,71105973
+L2 misses,64425,215576,812636
+L2 hit ratio (%),97.49,98.80,98.87
+DRAM read requests,62751,213903,810984
+DRAM write requests,37126,138105,536522
+DRAM read row hits,53060,183845,703285
+DRAM write row hits,32568,122236,476039
+DRAM read row hit ratio (%),84.55,85.95,86.72
+DRAM write row hit ratio (%),87.73,88.50,88.72
